@@ -1,0 +1,1 @@
+# ️⚠️️This test folder is for file-based approach for emails reading test ⚠️
