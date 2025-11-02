@@ -111,19 +111,21 @@ public class EmailServiceTest {
 
             // Convert to lowercase for case-insensitive search
             searchText = searchText.toLowerCase();
+            System.out.println(searchText);
 
             // Check if any keyword matches
             boolean found = false;
             for (String keyword : keywords) {
+                System.out.println(keyword.toLowerCase());
                 if (searchText.contains(keyword.toLowerCase())) {
                     found = true;
                     break; // No need to check other keywords for this email
                 }
+            }
 
-                // If keyword has already been found - found = true
-                if (found) {
-                    results.add(email);
-                }
+            // If keyword has already been found - found = true
+            if (found) {
+                results.add(email);
             }
         }
         return results;
