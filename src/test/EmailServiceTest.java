@@ -1,13 +1,7 @@
 package test;
 
-import java.io.BufferedReader;
-import java.io.FileNotFoundException;
-import java.io.FileReader;
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Stack;
+import java.io.*;
+import java.util.*;
 
 public class EmailServiceTest {
 
@@ -169,5 +163,130 @@ public class EmailServiceTest {
             }
         }
         return deletedCount;
+    }
+
+    /**
+     *  UNDO Functionality
+     * @return true if undo successful, false if nothing to undo
+     */
+    public boolean undoLastDeletion() {
+        if (deletedEmails.isEmpty()) {
+            System.out.println("⚠️  Nothing to undo.");
+            return false;
+        }
+
+        // Get the last deleted email
+        EmailTest restoredEmail = deletedEmails.pop();
+
+        // Add it back to the main list
+        emails.add(restoredEmail);
+
+        // Sort by ID to maintain order
+        emails.sort(Comparator.comparingInt(EmailTest::getId));
+
+        System.out.println("↩️  Restored email: " + restoredEmail.getSubject());
+        return true;
+
+        }
+    /**
+     * Check if there are any deletions that can be undone
+     * @return true if undo is available
+     */
+    public boolean canUndo() {
+        return !deletedEmails.isEmpty();
+    }
+
+    /**
+     * Get the number of emails that can be undone
+     * @return Count of deleted emails in undo stack
+     */
+    public int getUndoCount() {
+        return deletedEmails.size();
+    }
+
+    /**
+     *  SAVING
+     *  @return true if save successful, false otherwise
+     */
+
+    public boolean saveEmails() {
+        if (filePath == null) {
+            System.err.println("❌ Error: No file path set. Cannot save.");
+            return false;
+        }
+
+        try (BufferedWriter writer = new BufferedWriter(new FileWriter(filePath))) {
+            for (EmailTest email : emails) {
+                // Write each field on a separate line
+                writer.write("ID: " + email.getId());
+                writer.newLine();
+
+                writer.write("From: " + email.getFrom());
+                writer.newLine();
+
+                writer.write("To: " + email.getTo());
+                writer.newLine();
+
+                writer.write("Subject: " + email.getSubject());
+                writer.newLine();
+
+                writer.write("Date: " + email.getDate());
+                writer.newLine();
+
+                writer.write("Body: " + email.getBody());
+                writer.newLine();
+
+                // Separator between emails
+                writer.write("---");
+                writer.newLine();
+            }
+
+        System.out.println("✅ Successfully saved " + emails.size() + " emails to " + filePath);
+            return true;
+
+        } catch (IOException e) {
+            System.err.println("❌ Error saving file: " + e.getMessage());
+            return false;
+        }
+    }
+
+    // Utility methods
+    /**
+     * Get all emails (for display purposes)
+     * @return Unmodifiable view of the emails list
+     */
+    public List<EmailTest> getAllEmails() {
+        // Return unmodifiable list to prevent external modification
+        return Collections.unmodifiableList(emails);
+    }
+
+    /**
+     * Get email by ID
+     * @param id The email ID to find
+     * @return The email, or null if not found
+     */
+    public EmailTest getEmailById(int id) {
+        for (EmailTest email : emails) {
+            if (email.getId() == id) {
+                return email;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Get total count of emails
+     * @return Number of emails currently loaded
+     */
+    public int getEmailCount() {
+        return emails.size();
+    }
+
+    /**
+     * Check if any emails are loaded
+     * @return true if emails exist
+     */
+    public boolean hasEmails() {
+        return !emails.isEmpty();
     }
 }
