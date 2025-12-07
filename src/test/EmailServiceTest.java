@@ -12,6 +12,7 @@ public class EmailServiceTest {
      */
     private ArrayList<EmailTest> emails;
     private Stack<EmailTest> deletedEmails;
+    private ArrayList<EmailTest> deletedEmailsSaved;
     private String filePath;
 
     /**
@@ -120,6 +121,9 @@ public class EmailServiceTest {
                 results.add(email);
             }
         }
+        if (results.isEmpty()) {
+            System.out.println("No email with keywords: " + Arrays.toString(keywords) + " found.");
+        } else {System.out.println("Found: " + results.size() + " emails with keyword: " + Arrays.toString(keywords));}
         return results;
     }
 
@@ -288,5 +292,9 @@ public class EmailServiceTest {
      */
     public boolean hasEmails() {
         return !emails.isEmpty();
+    }
+
+    public Stack<EmailTest> getDeletedEmails(){
+        return deletedEmails;
     }
 }
