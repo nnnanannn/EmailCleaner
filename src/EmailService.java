@@ -1,5 +1,3 @@
-import test.EmailTest;
-
 import java.io.*;
 import java.util.*;
 
@@ -10,9 +8,8 @@ public class EmailService {
      * Stack<temp.Email> deletedEmails - Stack for undo functionality
      * String filePath - Path to the emails file
      */
-    private ArrayList<EmailTest> emails;
-    private Stack<EmailTest> deletedEmails;
-    private ArrayList<EmailTest> deletedEmailsSaved;
+    private ArrayList<Email> emails;
+    private Stack<DeletionAction> deletionHistory;
     private String filePath;
 
     /**
@@ -20,7 +17,7 @@ public class EmailService {
      */
     public EmailService() {
         this.emails = new ArrayList<>();
-        this.deletedEmails = new Stack<>();
+        this.deletionHistory = new Stack<>();
     }
 
     /**
@@ -47,7 +44,7 @@ public class EmailService {
                 // Check if we have reached the end of an email
                 if (line.equals("---")) {
                     // Create and add the email to the list
-                    EmailTest email = new EmailTest(id, from, to, subject, date, body.toString());
+                    Email email = new Email(id, from, to, subject, date, body.toString());
                     emails.add(email);
 
                     // Reset for next email
@@ -88,11 +85,11 @@ public class EmailService {
      * @return List of emails that match any of the keywords
      *
      */
-    public List<EmailTest> searchEmails(String[] keywords, boolean searchInBody) {
+    public List<Email> searchEmails(String[] keywords, boolean searchInBody) {
 
-        List<EmailTest> results = new ArrayList<>();
+        List<Email> results = new ArrayList<>();
 
-        for (EmailTest email : emails) {
+        for (Email email : emails) {
             // Build the text to search in
             String searchText;
 
@@ -128,20 +125,25 @@ public class EmailService {
     }
 
     /**
-     * temp.Email Deletion By ID
+     * Email Deletion By ID
      * @param id The ID of the email to delete
      * @return true if deleted, false if not found
      */
     public boolean deleteEmailById(int id) {
-        Iterator<EmailTest> iterator = emails.iterator();
+        Iterator<Email> iterator = emails.iterator();
 
         while (iterator.hasNext()) {
-            EmailTest email = iterator.next();
+            Email email = iterator.next();
 
             if (email.getId() == id) {
-                // Save to undo stack Before ACTUAL Removing
-                deletedEmails.push(email);
+                // Create a deletion action with description
+                String description = "Deleted email ID " + id;
+                DeletionAction action = new DeletionAction(email, description);
 
+                // Save to history BEFORE removing
+                deletionHistory.push(action);
+
+                // Remove from main list
                 iterator.remove();
 
                 System.out.println("✅ Deleted email: " + email.getSubject());
@@ -159,14 +161,61 @@ public class EmailService {
      * @return Number of emails successfully deleted
      */
     public int deleteMultipleEmails(int[] ids) {
-        int deletedCount = 0;
+        List<Email> deletedInThisAction = new ArrayList<>();
 
+        // Collect all emails to delete
         for (int id : ids) {
-            if (deleteEmailById(id)) {
-                deletedCount++;
+            Iterator<Email> iterator = emails.iterator();
+
+            while (iterator.hasNext()) {
+                Email email = iterator.next();
+
+                if (email.getId() == id) {
+                    deletedInThisAction.add(email);
+                    iterator.remove();
+                    break;
+                }
             }
         }
-        return deletedCount;
+
+        // Create ONE deletion action for all deleted emails
+        if (!deletedInThisAction.isEmpty()) {
+            String description = String.format("Deleted %d email%s by ID",
+                    deletedInThisAction.size(),
+                    deletedInThisAction.size() == 1 ? "" : "s"
+            );
+
+            DeletionAction action = new DeletionAction(deletedInThisAction, description);
+            deletionHistory.push(action);
+
+            System.out.println("✅ Deleted \" + deletedInThisAction.size() + \" email(s)");
+        }
+        return deletedInThisAction.size();
+    }
+
+    public int deletedAllEmails(List<Email> emailsToDelete, String actionDescription) {
+        if (emailsToDelete == null || emailsToDelete.isEmpty()) {
+            System.out.println("⚠️  No emails to delete.");
+            return 0;
+        }
+
+        List<Email> deleted = new ArrayList<>();
+
+        // Remove each email from the main list
+        for (Email email : emailsToDelete) {
+            if (emails.remove(email)) {
+                deleted.add(email);
+            }
+        }
+
+        // Create ONE deletion action for all deleted emails
+        if (!deleted.isEmpty()) {
+            DeletionAction action = new DeletionAction(deleted, actionDescription);
+            deletionHistory.push(action);
+
+            System.out.println("✅ Deleted " + deleted.size() + " email(s)");
+        }
+        return deleted.size();
     }
 
     /**
@@ -180,18 +229,18 @@ public class EmailService {
         }
 
         // Get the last deleted email
-        EmailTest restoredEmail = deletedEmails.pop();
+        Email restoredEmail = deletedEmails.pop();
 
         // Add it back to the main list
         emails.add(restoredEmail);
 
         // Sort by ID to maintain order
-        emails.sort(Comparator.comparingInt(EmailTest::getId));
+        emails.sort(Comparator.comparingInt(Email::getId));
 
         System.out.println("↩️  Restored email: " + restoredEmail.getSubject());
         return true;
 
-        }
+    }
     /**
      * Check if there are any deletions that can be undone
      * @return true if undo is available
@@ -220,7 +269,7 @@ public class EmailService {
         }
 
         try (BufferedWriter writer = new BufferedWriter(new FileWriter(filePath))) {
-            for (EmailTest email : emails) {
+            for (Email email : emails) {
                 // Write each field on a separate line
                 writer.write("ID: " + email.getId());
                 writer.newLine();
@@ -245,7 +294,7 @@ public class EmailService {
                 writer.newLine();
             }
 
-        System.out.println("✅ Successfully saved " + emails.size() + " emails to " + filePath);
+            System.out.println("✅ Successfully saved " + emails.size() + " emails to " + filePath);
             return true;
 
         } catch (IOException e) {
@@ -259,7 +308,7 @@ public class EmailService {
      * Get all emails (for display purposes)
      * @return Unmodifiable view of the emails list
      */
-    public List<EmailTest> getAllEmails() {
+    public List<Email> getAllEmails() {
         // Return unmodifiable list to prevent external modification
         return Collections.unmodifiableList(emails);
     }
@@ -269,8 +318,8 @@ public class EmailService {
      * @param id The email ID to find
      * @return The email, or null if not found
      */
-    public EmailTest getEmailById(int id) {
-        for (EmailTest email : emails) {
+    public Email getEmailById(int id) {
+        for (Email email : emails) {
             if (email.getId() == id) {
                 return email;
             }
@@ -294,7 +343,7 @@ public class EmailService {
         return !emails.isEmpty();
     }
 
-    public Stack<EmailTest> getDeletedEmails(){
+    public Stack<Email> getDeletedEmails(){
         return deletedEmails;
     }
 }
