@@ -218,8 +218,8 @@ public class UserInterfaceTest {
             System.out.println("│  [P] Previous Page                              │");
         }
 
-        System.out.println("│  [D] Delete Email(s) from Current Page          │");
-        System.out.println("│  [B] Back to Main Menu                          │");
+        System.out.println("│  [D] Delete temp.Email(s) from Current Page          │");
+        System.out.println("│  [B] Back to temp.Main Menu                          │");
         System.out.println("└─────────────────────────────────────────────────┘");
         System.out.print("\n💬 Your choice: ");
     }
@@ -387,7 +387,7 @@ public class UserInterfaceTest {
         } else {
             System.out.println("\n⚠️  Changes discarded.");
         }
-        System.out.println("\n👋 Thank you for using Email Cleaner!");
+        System.out.println("\n👋 Thank you for using temp.Email Cleaner!");
         System.out.println("═══════════════════════════════════════════════════\n");
     }
 

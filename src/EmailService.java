@@ -193,7 +193,7 @@ public class EmailService {
         return deletedInThisAction.size();
     }
 
-    public int deletedAllEmails(List<Email> emailsToDelete, String actionDescription) {
+    public int deleteAllEmails(List<Email> emailsToDelete, String actionDescription) {
         if (emailsToDelete == null || emailsToDelete.isEmpty()) {
             System.out.println("⚠️  No emails to delete.");
             return 0;
@@ -218,35 +218,70 @@ public class EmailService {
         return deleted.size();
     }
 
-    /**
-     *  UNDO Functionality
-     * @return true if undo successful, false if nothing to undo
-     */
-    public boolean undoLastDeletion() {
-        if (deletedEmails.isEmpty()) {
+    public int deletedFirstN(List<Email> emailsToDeleteFrom, int count, String actionDescription) {
+        if (emailsToDeleteFrom == null || emailsToDeleteFrom.isEmpty()) {
+            return 0;
+        }
+
+        if (count <= 0) {
+            System.out.println("⚠️  Invalid count. Must be greater than 0.");
+            return 0;
+        }
+
+        // Determine how many emails can be actually deleted
+        int actualCount = Math.min(count, emailsToDeleteFrom.size());
+
+        // Get the first N emails
+        List<Email> toDelete = emailsToDeleteFrom.subList(0, actualCount);
+        List<Email> deleted = new ArrayList<>();
+
+        // Delete them from the main list
+        for (Email email : toDelete) {
+            if (emails.remove(email)) {
+                deleted.add(email);
+            }
+        }
+
+        // Create ONE deletion action
+        if (!deleted.isEmpty()) {
+            DeletionAction action = new DeletionAction(deleted, actionDescription);
+            deletionHistory.push(action);
+
+            System.out.println("✅ Deleted " + deleted.size() + " email(s)");
+        }
+
+        return deleted.size();
+    }
+
+    // Batch UNDO Functionality
+    public boolean undoLastAction() {
+        if (deletionHistory.isEmpty()) {
             System.out.println("⚠️  Nothing to undo.");
             return false;
         }
 
-        // Get the last deleted email
-        Email restoredEmail = deletedEmails.pop();
+        // Pop the last deletion action
+        DeletionAction lastAction = deletionHistory.pop();
 
-        // Add it back to the main list
-        emails.add(restoredEmail);
+        // Restore ALL emails from that action
+        List<Email> emailsToRestore = lastAction.getDeletedEmails();
+        emails.addAll(emailsToRestore);
 
         // Sort by ID to maintain order
         emails.sort(Comparator.comparingInt(Email::getId));
 
-        System.out.println("↩️  Restored email: " + restoredEmail.getSubject());
-        return true;
+        System.out.println("↩️  Undone: " + lastAction.getDescription());
+        System.out.println("   Restored " + emailsToRestore.size() + " email(s)");
 
+        return true;
     }
+
     /**
      * Check if there are any deletions that can be undone
      * @return true if undo is available
      */
     public boolean canUndo() {
-        return !deletedEmails.isEmpty();
+        return !deletionHistory.isEmpty();
     }
 
     /**
@@ -254,7 +289,23 @@ public class EmailService {
      * @return Count of deleted emails in undo stack
      */
     public int getUndoCount() {
-        return deletedEmails.size();
+        return deletionHistory.size();
+    }
+
+    // Get a preview of what the next undo will restore
+    public String getLastActionDescription() {
+        if (deletionHistory.isEmpty()) {
+            return null;
+        }
+
+        return deletionHistory.peek().toString();
+    }
+
+    // Get full deletion history for display
+    public List<DeletionAction> getDeletionHistory() {
+        // Return a copy to prevent external modification
+        List<DeletionAction> history = new ArrayList<>(deletionHistory);
+        return history;
     }
 
     /**
@@ -341,9 +392,5 @@ public class EmailService {
      */
     public boolean hasEmails() {
         return !emails.isEmpty();
-    }
-
-    public Stack<Email> getDeletedEmails(){
-        return deletedEmails;
     }
 }

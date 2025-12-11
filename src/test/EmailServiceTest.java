@@ -6,8 +6,8 @@ import java.util.*;
 public class EmailServiceTest {
 
     /**
-     * ArrayList<EmailTest> emails - Main list of all emails
-     * Stack<Email> deletedEmails - Stack for undo functionality
+     * ArrayList<EmailTest> emails - temp.Main list of all emails
+     * Stack<temp.Email> deletedEmails - Stack for undo functionality
      * String filePath - Path to the emails file
      */
     private ArrayList<EmailTest> emails;
@@ -82,7 +82,7 @@ public class EmailServiceTest {
     }
 
     /**
-     * Email Searching
+     * temp.Email Searching
      * @param keywords Array of keywords to search for
      * @param searchInBody If true, search in both subject and body; if false, subject only
      * @return List of emails that match any of the keywords
@@ -128,7 +128,7 @@ public class EmailServiceTest {
     }
 
     /**
-     * Email Deletion By ID
+     * temp.Email Deletion By ID
      * @param id The ID of the email to delete
      * @return true if deleted, false if not found
      */
@@ -149,7 +149,7 @@ public class EmailServiceTest {
             }
         }
 
-        System.out.println("❌ Email with ID " + id + " not found.");
+        System.out.println("❌ temp.Email with ID " + id + " not found.");
         return false;
     }
 

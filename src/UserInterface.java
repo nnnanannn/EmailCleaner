@@ -1,6 +1,7 @@
 import test.EmailServiceTest;
 import test.EmailTest;
 
+import javax.management.NotificationEmitter;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Scanner;
@@ -8,16 +9,16 @@ import java.util.Stack;
 
 public class UserInterface {
 
-    private EmailServiceTest emailServiceTest;
+    private EmailService emailService;
     private Scanner scanner;
     private static final int PAGE_SIZE = 15;
 
     /**
      * Create the UI with a reference to the email service test class
-     * @param emailServiceTest The service to use for email operations
+     * @param emailService The service to use for email operations
      */
-    public UserInterface(EmailServiceTest emailServiceTest) {
-        this.emailServiceTest = emailServiceTest;
+    public UserInterface(EmailServiceTest emailService) {
+        this.emailService = this.emailService;
         this.scanner = new Scanner(System.in);
     }
 
@@ -32,12 +33,12 @@ public class UserInterface {
         System.out.println("╚═══════════════════════════════════════════════════╝");
         System.out.println();
 
-        if (!emailServiceTest.hasEmails()) {
+        if (!emailService.hasEmails()) {
             System.out.println("⚠️  No emails loaded. Please check your emails.txt file.");
             return;
         }
 
-        System.out.println("✅ Loaded " + emailServiceTest.getEmailCount() + " emails");
+        System.out.println("✅ Loaded " + emailService.getEmailCount() + " emails");
         System.out.println();
 
         boolean running = true;
@@ -57,13 +58,17 @@ public class UserInterface {
                     break;
                 case 2:
                     handledViewAll();
+                    break;
                 case 3:
                     handleUndo();
-                default:
                     break;
-
+                case 4:
+                    handleExit();
+                    running = false;
+                    break;
             }
         }
+        scanner.close();
     }
 
     // ============================================
@@ -108,15 +113,13 @@ public class UserInterface {
         System.out.println("\n📍 Search scope:");
         System.out.println("   1. Subject only (faster)");
         System.out.println("   2. Subject + Body (more thorough)");
+
         int scopeChoice = getIntInput("Choose option (1 or 2): ", 1, 2);
-        boolean searchInBody = false;
-        if (scopeChoice == 2) {
-            searchInBody = true;
-        }
+        boolean searchInBody = (scopeChoice == 2);
 
         // Perform the search
         System.out.println("\n🔍 Searching...");
-        List<EmailTest> results = emailServiceTest.searchEmails(keywords, searchInBody);
+        List<Email> results = emailService.searchEmails(keywords, searchInBody);
 
         // Display results
         if (results.isEmpty()) {
@@ -131,34 +134,34 @@ public class UserInterface {
     }
 
     // Display and Pagination
-    private void displaySearchResults(List<EmailTest> resultEmails) {
+    private void displaySearchResults(List<Email> emails, String[] keywords) {
         int currentPage = 0;
-        int totalPages = (int) Math.ceil((double) resultEmails.size() / PAGE_SIZE);
+        int totalPages = (int) Math.ceil((double) emails.size() / PAGE_SIZE);
 
         boolean viewing = true;
 
-        while (viewing) {
+        while (viewing && !emails.isEmpty()) {
             // Clear screen effect
             System.out.println("\n\n");
 
             // Calculate range for current page
             int startIndex = currentPage * PAGE_SIZE;
-            int endIndex = Math.min(startIndex + PAGE_SIZE, resultEmails.size());
+            int endIndex = Math.min(startIndex + PAGE_SIZE, emails.size());
 
             // Display header
             System.out.println("═══════════════════════════════════════════════════════════════");
             System.out.printf("  SEARCH RESULTS - Page %d of %d (Showing %d-%d of %d)%n",
-                    currentPage + 1, totalPages, startIndex + 1, endIndex, resultEmails.size());
+                    currentPage + 1, totalPages, startIndex + 1, endIndex, emails.size());
             System.out.println("═══════════════════════════════════════════════════════════════");
 
             // Display emails on current page
             for (int i = startIndex; i < endIndex; i++) {
-                EmailTest emailTest = resultEmails.get(i);
-                System.out.println(emailTest);
+                Email email = emails.get(i);
+                System.out.println(email);
             }
 
             // Display pagination menu
-            displayPaginationMenu(currentPage, totalPages);
+            displayPaginationMenu(currentPage, totalPages, emails.size());
 
             String choice = scanner.nextLine().trim().toLowerCase();
 
@@ -167,7 +170,7 @@ public class UserInterface {
                     if (currentPage < totalPages -1 ) {
                         currentPage++;
                     } else {
-                        System.out.println("⚠\uFE0F  Already on last page.");
+                        System.out.println("⚠️ Already on last page.");
                         pause();
                     }
                     break;
@@ -181,15 +184,32 @@ public class UserInterface {
                     }
                     break;
 
-                case "d": // Delete
-                    handleDeleteFromResults(resultEmails, startIndex, endIndex);
+                case "d": // Delete specific emails
+                    handleDeleteFromResults(emails, startIndex, endIndex);
                     // Update total pages in case emails were deleted
-                    totalPages = (int) Math.ceil((double) resultEmails.size() / PAGE_SIZE);
+                    totalPages = (int) Math.ceil((double) emails.size() / PAGE_SIZE);
                     // Adjust current page if needed
                     if (currentPage >= totalPages && totalPages > 0) {
                         currentPage = totalPages - 1;
                     }
-                    if (resultEmails.isEmpty()) {
+                    if (emails.isEmpty()) {
+                        System.out.println("✅ All matching emails deleted.");
+                        viewing = false;
+                    }
+                    break;
+
+                case "a":  // Delete ALL matching emails
+                    handleDeleteAll(emails, keywords);
+                    viewing = false;  // Exit after deleting all
+                    break;
+
+                case "f":  // Delete FIRST N emails
+                    handleDeleteFirstN(emails, keywords);
+                    totalPages = (int) Math.ceil((double) emails.size() / PAGE_SIZE);
+                    if (currentPage >= totalPages && totalPages > 0) {
+                        currentPage = totalPages - 1;
+                    }
+                    if (emails.isEmpty()) {
                         System.out.println("✅ All matching emails deleted.");
                         viewing = false;
                     }
@@ -207,7 +227,7 @@ public class UserInterface {
     }
 
     // Display the pagination menu
-    private void displayPaginationMenu(int currentPage, int totalPages) {
+    private void displayPaginationMenu(int currentPage, int totalPages, int totalResults) {
         System.out.println("\n┌─────────────────────────────────────────────────┐");
         System.out.println("│                 NAVIGATION                      │");
         System.out.println("├─────────────────────────────────────────────────┤");
@@ -219,13 +239,71 @@ public class UserInterface {
             System.out.println("│  [P] Previous Page                              │");
         }
 
-        System.out.println("│  [D] Delete temp.Email(s) from Current Page          │");
-        System.out.println("│  [B] Back to temp.Main Menu                          │");
+        System.out.println("│                                                 │");
+        System.out.println("│  DELETION OPTIONS:                              │");
+        System.out.println("│  [D] Delete Email(s) from Current Page          │");
+        System.out.println("│  [A] Delete ALL " + String.format("%-2d", totalResults) + " Matching Emails           │");
+        System.out.println("│  [F] Delete First N Matching Emails             │");
+        System.out.println("│                                                 │");
+        System.out.println("│  [B] Back to Main Menu                          │");
         System.out.println("└─────────────────────────────────────────────────┘");
         System.out.print("\n💬 Your choice: ");
     }
 
-    private void handleDeleteFromResults(List<EmailTest> resultEmails, int startIndex, int endIndex) {
+    private void handleDeleteAll(List<Email> emails, String[] keywords) {
+        System.out.println("\n┌─────────────────────────────────────────────────┐");
+        System.out.println("│            DELETE ALL CONFIRMATION              │");
+        System.out.println("└─────────────────────────────────────────────────┘");
+
+        System.out.println("\n⚠️  WARNING: You are about to delete " + emails.size() + " email(s)!");
+        System.out.println("   Keywords: " + String.join(", ", keywords));
+        System.out.println("\n💡 You can undo this action from the main menu.");
+
+        System.out.print("\n⚠️  Are you SURE you want to delete ALL " + emails.size() + " emails? (yes/no): ");
+        String confirm = scanner.nextLine().trim().toLowerCase();
+
+        if (!confirm.equals("yes") && !confirm.equals("y")) {
+            System.out.println("❌ Cancelled. No emails were deleted.");
+            pause();
+            return;
+        }
+
+        // Create description for undo history
+        String description = String.format("Deleted all %d email(s) matching '%s'",
+                emails.size(),
+                String.join(", ", keywords)
+        );
+
+        // Delete all emails as ONE action
+        int deletedCount = emailService.deleteAllEmails(new ArrayList<>(emails), description);
+
+        if (deletedCount > 0) {
+            // Clear the results list since we deleted them
+            emails.clear();
+
+            System.out.println("\n✅ Successfully deleted " + deletedCount + " email(s)");
+            System.out.println("💡 You can undo this action from the main menu");
+        }
+
+        pause();
+    }
+
+    // Delete First N emails
+    private void handleDeleteFirstN(List<Email> emails, String[] keywords) {
+        System.out.println("\n┌─────────────────────────────────────────────────┐");
+        System.out.println("│          DELETE FIRST N EMAILS                  │");
+        System.out.println("└─────────────────────────────────────────────────┘");
+
+        System.out.println("\n💡 You have " + emails.size() + " matching email(s)");
+        System.out.println("   How many would you like to delete (from the beginning)?");
+
+        int count = getIntInput("\n💬 Number to delete (1-" + emails.size() + "): ", 1, emails.size());
+
+
+
+    }
+
+    private void handleDeleteFromResults(List<EmailTest> emails, int startIndex, int endIndex) {
         System.out.println("\n┌─────────────────────────────────────────────────┐");
         System.out.println("│              DELETE CONFIRMATION                │");
         System.out.println("└─────────────────────────────────────────────────┘");
@@ -237,7 +315,7 @@ public class UserInterface {
         // Show compact list of current page
         System.out.println("\n📋 Emails on this page:");
         for (int i = startIndex; i < endIndex; i++) {
-            EmailTest email = resultEmails.get(i);
+            EmailTest email = emails.get(i);
             System.out.printf("   [ID: %d] %s - %s%n",
                     email.getId(), email.getFrom(), email.getSubject());
         }
@@ -273,10 +351,10 @@ public class UserInterface {
             saveDeletedEmails(ids);
 
             // Perform deletion
-            int deletedCount = emailServiceTest.deleteMultipleEmails(ids);
+            int deletedCount = emailService.deleteMultipleEmails(ids);
 
             // Remove from results list too
-            resultEmails.removeIf(email -> {
+            email.removeIf(email -> {
                 for (int id : ids) {
                     if (email.getId() == id)
                         return true;

@@ -6,9 +6,9 @@ public class EmailTest {
      * id - Unique identifier for each email
      * from - Sender's email address
      * to - Recipient's email address
-     * subject - Email subject line
+     * subject - temp.Email subject line
      * date - Date email was sent
-     * body - Email content/ message
+     * body - temp.Email content/ message
      */
     private int id; // Unique identifier for each email
     private String from;
@@ -22,9 +22,9 @@ public class EmailTest {
      * @param id - Unique identifier
      * @param from - Sender email address
      * @param to - Recipient email address
-     * @param subject - Email subject
+     * @param subject - temp.Email subject
      * @param date - Date sent
-     * @param body - Email content
+     * @param body - temp.Email content
      */
     public EmailTest(int id, String from, String to, String subject, String date, String body) {
         this.id = id;
