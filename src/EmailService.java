@@ -218,7 +218,7 @@ public class EmailService {
         return deleted.size();
     }
 
-    public int deletedFirstN(List<Email> emailsToDeleteFrom, int count, String actionDescription) {
+    public int deleteFirstN(List<Email> emailsToDeleteFrom, int count, String actionDescription) {
         if (emailsToDeleteFrom == null || emailsToDeleteFrom.isEmpty()) {
             return 0;
         }

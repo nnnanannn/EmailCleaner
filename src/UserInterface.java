@@ -1,11 +1,6 @@
-import test.EmailServiceTest;
-import test.EmailTest;
-
-import javax.management.NotificationEmitter;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Scanner;
-import java.util.Stack;
 
 public class UserInterface {
 
@@ -17,8 +12,8 @@ public class UserInterface {
      * Create the UI with a reference to the email service test class
      * @param emailService The service to use for email operations
      */
-    public UserInterface(EmailServiceTest emailService) {
-        this.emailService = this.emailService;
+    public UserInterface(EmailService emailService) {
+        this.emailService = emailService;
         this.scanner = new Scanner(System.in);
     }
 
@@ -130,7 +125,7 @@ public class UserInterface {
         System.out.println("\n✅ Found " + results.size() + " matching email(s)");
 
         // Show results with pagination and deletion options
-        displaySearchResults(results);
+        displaySearchResults(results, keywords);
     }
 
     // Display and Pagination
@@ -299,11 +294,47 @@ public class UserInterface {
 
         int count = getIntInput("\n💬 Number to delete (1-" + emails.size() + "): ", 1, emails.size());
 
+         // Show which emails will be deleted
+        System.out.println("\n📋 First " + count + " email(s) that will be deleted:");
+        for (int i = 0; i < count && i < emails.size(); i++) {
+            Email email = emails.get(i);
+            System.out.printf("   %d. [ID: %d] %s - %s%n",
+                    i + 1, email.getId(), email.getFrom(), email.getSubject());
+        }
 
+        System.out.print("\n⚠️  Confirm deletion of these " + count + " email(s)? (yes/no): ");
+        String confirm = scanner.nextLine().trim().toLowerCase();
+
+        if (!confirm.equals("yes") && !confirm.equals("y")) {
+            System.out.println("❌ Cancelled. No emails were deleted.");
+            pause();
+            return;
+        }
+
+        // Create description for undo history
+        String description = String.format("Deleted first %d email(s) matching '%s'",
+                count,
+                String.join(", ", keywords)
+        );
+
+        // Delete first N emails as ONE action
+        int deletedCount = emailService.deleteFirstN(emails, count, description);
+
+        if (deletedCount > 0) {
+            // Remove deleted emails from the results list
+            for (int i = 0; i < deletedCount; i++) {
+                emails.remove(0);
+            }
+
+            System.out.println("\n✅ Successfully deleted " + deletedCount + " email(s)");
+            System.out.println("💡 You can undo this action from the main menu");
+        }
+
+        pause();
 
     }
 
-    private void handleDeleteFromResults(List<EmailTest> emails, int startIndex, int endIndex) {
+    private void handleDeleteFromResults(List<Email> emails, int startIndex, int endIndex) {
         System.out.println("\n┌─────────────────────────────────────────────────┐");
         System.out.println("│              DELETE CONFIRMATION                │");
         System.out.println("└─────────────────────────────────────────────────┘");
@@ -315,7 +346,7 @@ public class UserInterface {
         // Show compact list of current page
         System.out.println("\n📋 Emails on this page:");
         for (int i = startIndex; i < endIndex; i++) {
-            EmailTest email = emails.get(i);
+            Email email = emails.get(i);
             System.out.printf("   [ID: %d] %s - %s%n",
                     email.getId(), email.getFrom(), email.getSubject());
         }
@@ -354,7 +385,7 @@ public class UserInterface {
             int deletedCount = emailService.deleteMultipleEmails(ids);
 
             // Remove from results list too
-            email.removeIf(email -> {
+            emails.removeIf(email -> {
                 for (int id : ids) {
                     if (email.getId() == id)
                         return true;
@@ -362,7 +393,7 @@ public class UserInterface {
                 return false;
             });
 
-            System.out.print("\n✅ Successfully deleted " + deletedCount + " email(s)");
+            System.out.println("\n✅ Successfully deleted " + deletedCount + " email(s)");
             System.out.print(" (id: ");
             for (int i = 0; i <= ids.length - 1; i++) {
                 if (i == ids.length - 1) {
@@ -399,14 +430,14 @@ public class UserInterface {
         System.out.println("                 ALL EMAILS                        ");
         System.out.println("═══════════════════════════════════════════════════");
 
-        List<EmailTest> allEmails = emailServiceTest.getAllEmails();
+        List<Email> allEmails = emailService.getAllEmails();
 
         if (allEmails.isEmpty()) {
             System.out.println("\n📭 No emails to display.");
             pause();
             return;
         }
-        displaySearchResults(new ArrayList<>(allEmails));
+        displaySearchResults(new ArrayList<>(allEmails), new String[]{"all"});
     }
 
     // Undo functionality
@@ -415,31 +446,51 @@ public class UserInterface {
         System.out.println("                 UNDO DELETION                     ");
         System.out.println("═══════════════════════════════════════════════════");
 
-        if (!emailServiceTest.canUndo()) {
+        if (!emailService.canUndo()) {
             System.out.println("\n⚠️  Nothing to undo. No emails have been deleted.");
             pause();
             return;
         }
 
-        int undoCount = emailServiceTest.getUndoCount();
+        // Show undo history
+        System.out.println("\n📜 DELETION HISTORY (Most Recent First):");
+        System.out.println("─────────────────────────────────────────────────");
+
+        List<DeletionAction> history = emailService.getDeletionHistory();
+        for (int i = 0; i < Math.min(5, history.size()); i++) {
+            DeletionAction action = history.get(i);
+            System.out.printf("%d. %s%n", i + 1, action.toString());
+        }
+
+        if (history.size() > 5) {
+            System.out.println("   ... and " + (history.size() - 5) + " more action(s)");
+        }
+
+        int undoCount = emailService.getUndoCount();
         System.out.println("\n💡 You have " + undoCount + " deletion(s) that can be undone.");
         System.out.println("   Deleted emails: ");
 
-        Stack<EmailTest> savedDeletedEmails = emailServiceTest.getDeletedEmails();
+        List<DeletionAction> savedDeletedEmails = emailService.getDeletionHistory();
         int deletedEmailsCounter = 1;
-        while (!savedDeletedEmails.empty()) {
-            System.out.println(deletedEmailsCounter + ") ID:" +
-                    (savedDeletedEmails.pop()).getSubject());
+        while (!savedDeletedEmails.isEmpty()) {
+            System.out.println(emailService.getLastActionDescription());
+//            System.out.println(deletedEmailsCounter + ") ID:" +
+//                    (savedDeletedEmails.get(deletedEmailsCounter)).getSubject());
             deletedEmailsCounter++;
         }
 
-        System.out.print("   Undo the last deletion? (yes/no): ");
+        System.out.println("─────────────────────────────────────────────────");
 
+        // Show what will be undone
+        String nextUndo = emailService.getLastActionDescription();
+        System.out.println("\n💡 Next undo will restore: " + nextUndo);
+
+        System.out.print("\n⚠️  Undo this deletion action? (yes/no): ");
         String confirm = scanner.nextLine().trim().toLowerCase();
 
         if (confirm.equals("yes") || confirm.equals("y")) {
-            if (emailServiceTest.undoLastDeletion()) {
-                System.out.println("\n✅ Last deletion undone successfully!");
+            if (emailService.undoLastAction()) {
+                System.out.println("\n✅ Action undone successfully!");
             }
         } else {
             System.out.println("❌ Cancelled.");
@@ -458,7 +509,7 @@ public class UserInterface {
         String confirm = scanner.nextLine().trim().toLowerCase();
 
         if (confirm.equals("yes") || confirm.equals("y")) {
-            if (emailServiceTest.saveEmails()) {
+            if (emailService.saveEmails()) {
                 System.out.println("\n✅ Changes saved successfully!");
             } else {
                 System.out.println("\n⚠️  Failed to save changes.");
@@ -466,7 +517,7 @@ public class UserInterface {
         } else {
             System.out.println("\n⚠️  Changes discarded.");
         }
-        System.out.println("\n👋 Thank you for using temp.Email Cleaner!");
+        System.out.println("\n👋 Thank you for using Email Cleaner!");
         System.out.println("═══════════════════════════════════════════════════\n");
     }
 

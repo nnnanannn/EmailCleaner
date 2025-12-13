@@ -1,32 +1,24 @@
-import test.EmailServiceTest;
-import test.EmailTest;
-import test.UserInterfaceTest;
-
 import java.util.List;
 
 public class Main {
 
     public static void main(String[] args) {
-        EmailServiceTest emailServiceTest = new EmailServiceTest();
-        String emailFilePath = "emails.txt";
-        emailServiceTest.loadEmails(emailFilePath);
+        EmailService emailService = new EmailService();
+        String emailFilePath = "EmailCleaner/emails.txt";
+        emailService.loadEmails(emailFilePath);
 
-        UserInterfaceTest ui = new UserInterfaceTest(emailServiceTest);
+        UserInterface ui = new UserInterface(emailService);
         ui.start();
-
-        //MainTest test = new MainTest();
-        //test.testRead();
-
     }
 
     private void testRead() {
 
-        EmailServiceTest emailServiceTest = new EmailServiceTest();
+        EmailService emailService = new EmailService();
         String emailFilePath = "emails.txt";
-        emailServiceTest.loadEmails(emailFilePath);
+        emailService.loadEmails(emailFilePath);
 
         String[] keywords = {"modules", "friend"};
-        List<EmailTest> results = emailServiceTest.searchEmails(keywords, true);
+        List<Email> results = emailService.searchEmails(keywords, true);
         if (!results.isEmpty()) {
             for (int i = 0; i < results.size(); i++) {
                 System.out.println(results.get(i));
