@@ -47,12 +47,13 @@ public class UserInterface {
         while (running) {
             displayMainMenu();
             int choice = getIntInput("Enter your choice: ", 1, 4);
+
             switch (choice) {
                 case 1:
                     handleSearch();
                     break;
                 case 2:
-                    handledViewAll();
+                    handleViewAll();
                     break;
                 case 3:
                     handleUndo();
@@ -425,7 +426,7 @@ public class UserInterface {
     }
 
     // View all emails
-    private void handledViewAll() {
+    private void handleViewAll() {
         System.out.println("\n═══════════════════════════════════════════════════");
         System.out.println("                 ALL EMAILS                        ");
         System.out.println("═══════════════════════════════════════════════════");
@@ -464,19 +465,6 @@ public class UserInterface {
 
         if (history.size() > 5) {
             System.out.println("   ... and " + (history.size() - 5) + " more action(s)");
-        }
-
-        int undoCount = emailService.getUndoCount();
-        System.out.println("\n💡 You have " + undoCount + " deletion(s) that can be undone.");
-        System.out.println("   Deleted emails: ");
-
-        List<DeletionAction> savedDeletedEmails = emailService.getDeletionHistory();
-        int deletedEmailsCounter = 1;
-        while (!savedDeletedEmails.isEmpty()) {
-            System.out.println(emailService.getLastActionDescription());
-//            System.out.println(deletedEmailsCounter + ") ID:" +
-//                    (savedDeletedEmails.get(deletedEmailsCounter)).getSubject());
-            deletedEmailsCounter++;
         }
 
         System.out.println("─────────────────────────────────────────────────");
